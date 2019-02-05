@@ -45,98 +45,6 @@ if [[ $response =~ (yes|y|Y) ]];then
     bot "Your /etc/hosts file has been updated. Last version is saved in /etc/hosts.backup"
 fi
 
-grep 'user = GITHUBUSER' ./homedir/.gitconfig > /dev/null 2>&1
-if [[ $? = 0 ]]; then
-    read -r -p "What is your github.com username? " githubuser
-
-  fullname=`osascript -e "long user name of (system info)"`
-
-  if [[ -n "$fullname" ]];then
-    lastname=$(echo $fullname | awk '{print $2}');
-    firstname=$(echo $fullname | awk '{print $1}');
-  fi
-
-  if [[ -z $lastname ]]; then
-    lastname=`dscl . -read /Users/$(whoami) | grep LastName | sed "s/LastName: //"`
-  fi
-  if [[ -z $firstname ]]; then
-    firstname=`dscl . -read /Users/$(whoami) | grep FirstName | sed "s/FirstName: //"`
-  fi
-  email=`dscl . -read /Users/$(whoami)  | grep EMailAddress | sed "s/EMailAddress: //"`
-
-  if [[ ! "$firstname" ]];then
-    response='n'
-  else
-    echo -e "I see that your full name is $COL_YELLOW$firstname $lastname$COL_RESET"
-    read -r -p "Is this correct? [Y|n] " response
-  fi
-
-  if [[ $response =~ ^(no|n|N) ]];then
-    read -r -p "What is your first name? " firstname
-    read -r -p "What is your last name? " lastname
-  fi
-  fullname="$firstname $lastname"
-
-  bot "Great $fullname, "
-
-  if [[ ! $email ]];then
-    response='n'
-  else
-    echo -e "The best I can make out, your email address is $COL_YELLOW$email$COL_RESET"
-    read -r -p "Is this correct? [Y|n] " response
-  fi
-
-  if [[ $response =~ ^(no|n|N) ]];then
-    read -r -p "What is your email? " email
-    if [[ ! $email ]];then
-      error "you must provide an email to configure .gitconfig"
-      exit 1
-    fi
-  fi
-
-
-  running "replacing items in .gitconfig with your info ($COL_YELLOW$fullname, $email, $githubuser$COL_RESET)"
-
-  # test if gnu-sed or MacOS sed
-
-  sed -i "s/GITHUBFULLNAME/$firstname $lastname/" ./homedir/.gitconfig > /dev/null 2>&1 | true
-  if [[ ${PIPESTATUS[0]} != 0 ]]; then
-    echo
-    running "looks like you are using MacOS sed rather than gnu-sed, accommodating"
-    sed -i '' "s/GITHUBFULLNAME/$firstname $lastname/" ./homedir/.gitconfig;
-    sed -i '' 's/GITHUBEMAIL/'$email'/' ./homedir/.gitconfig;
-    sed -i '' 's/GITHUBUSER/'$githubuser'/' ./homedir/.gitconfig;
-    ok
-  else
-    echo
-    bot "looks like you are already using gnu-sed. woot!"
-    sed -i 's/GITHUBEMAIL/'$email'/' ./homedir/.gitconfig;
-    sed -i 's/GITHUBUSER/'$githubuser'/' ./homedir/.gitconfig;
-  fi
-fi
-
-MD5_NEWWP=$(md5 img/wallpaper.jpg | awk '{print $4}')
-MD5_OLDWP=$(md5 /System/Library/CoreServices/DefaultDesktop.jpg | awk '{print $4}')
-if [[ "$MD5_NEWWP" != "$MD5_OLDWP" ]]; then
-  read -r -p "Do you want to use the project's custom desktop wallpaper? [Y|n] " response
-  if [[ $response =~ ^(no|n|N) ]];then
-    echo "skipping...";
-    ok
-  else
-    running "Set a custom wallpaper image"
-    # `DefaultDesktop.jpg` is already a symlink, and
-    # all wallpapers are in `/Library/Desktop Pictures/`. The default is `Wave.jpg`.
-    rm -rf ~/Library/Application Support/Dock/desktoppicture.db
-    sudo rm -f /System/Library/CoreServices/DefaultDesktop.jpg > /dev/null 2>&1
-    sudo rm -f /Library/Desktop\ Pictures/El\ Capitan.jpg > /dev/null 2>&1
-    sudo rm -f /Library/Desktop\ Pictures/Sierra.jpg > /dev/null 2>&1
-    sudo rm -f /Library/Desktop\ Pictures/Sierra\ 2.jpg > /dev/null 2>&1
-    sudo cp ./img/wallpaper.jpg /System/Library/CoreServices/DefaultDesktop.jpg;
-    sudo cp ./img/wallpaper.jpg /Library/Desktop\ Pictures/Sierra.jpg;
-    sudo cp ./img/wallpaper.jpg /Library/Desktop\ Pictures/Sierra\ 2.jpg;
-    sudo cp ./img/wallpaper.jpg /Library/Desktop\ Pictures/El\ Capitan.jpg;ok
-  fi
-fi
 
 #####
 # install homebrew (CLI Packages)
@@ -201,53 +109,11 @@ if [[ "$CURRENTSHELL" != "/usr/local/bin/zsh" ]]; then
   ok
 fi
 
-if [[ ! -d "./oh-my-zsh/custom/themes/powerlevel9k" ]]; then
-  git clone https://github.com/bhilburn/powerlevel9k.git oh-my-zsh/custom/themes/powerlevel9k
-fi
-
-bot "creating symlinks for project dotfiles..."
-pushd homedir > /dev/null 2>&1
-now=$(date +"%Y.%m.%d.%H.%M.%S")
-
-for file in .*; do
-  if [[ $file == "." || $file == ".." ]]; then
-    continue
-  fi
-  running "~/$file"
-  # if the file exists:
-  if [[ -e ~/$file ]]; then
-      mkdir -p ~/.dotfiles_backup/$now
-      mv ~/$file ~/.dotfiles_backup/$now/$file
-      echo "backup saved as ~/.dotfiles_backup/$now/$file"
-  fi
-  # symlink might still exist
-  unlink ~/$file > /dev/null 2>&1
-  # create the link
-  ln -s ~/.dotfiles/homedir/$file ~/$file
-  echo -en '\tlinked';ok
-done
-
-popd > /dev/null 2>&1
-
-
 bot "Installing vim plugins"
 # cmake is required to compile vim bundle YouCompleteMe
 # require_brew cmake
 vim +PluginInstall +qall > /dev/null 2>&1
 
-bot "installing fonts"
-./fonts/install.sh
-brew tap caskroom/fonts
-require_cask font-fontawesome
-require_cask font-awesome-terminal-fonts
-require_cask font-hack
-require_cask font-inconsolata-dz-for-powerline
-require_cask font-inconsolata-g-for-powerline
-require_cask font-inconsolata-for-powerline
-require_cask font-roboto-mono
-require_cask font-roboto-mono-for-powerline
-require_cask font-source-code-pro
-ok
 
 if [[ -d "/Library/Ruby/Gems/2.0.0" ]]; then
   running "Fixing Ruby Gems Directory Permissions"
@@ -292,107 +158,6 @@ running "closing any system preferences to prevent issues with automated changes
 osascript -e 'tell application "System Preferences" to quit'
 ok
 
-##############################################################################
-# Security                                                                   #
-##############################################################################
-# Based on:
-# https://github.com/drduh/macOS-Security-and-Privacy-Guide
-# https://benchmarks.cisecurity.org/tools2/osx/CIS_Apple_OSX_10.12_Benchmark_v1.0.0.pdf
-
-# Enable firewall. Possible values:
-#   0 = off
-#   1 = on for specific sevices
-#   2 = on for essential services
-sudo defaults write /Library/Preferences/com.apple.alf globalstate -int 1
-
-# Enable firewall stealth mode (no response to ICMP / ping requests)
-# Source: https://support.apple.com/kb/PH18642
-#sudo defaults write /Library/Preferences/com.apple.alf stealthenabled -int 1
-sudo defaults write /Library/Preferences/com.apple.alf stealthenabled -int 1
-
-# Enable firewall logging
-#sudo defaults write /Library/Preferences/com.apple.alf loggingenabled -int 1
-
-# Do not automatically allow signed software to receive incoming connections
-#sudo defaults write /Library/Preferences/com.apple.alf allowsignedenabled -bool false
-
-# Log firewall events for 90 days
-#sudo perl -p -i -e 's/rotate=seq compress file_max=5M all_max=50M/rotate=utc compress file_max=5M ttl=90/g' "/etc/asl.conf"
-#sudo perl -p -i -e 's/appfirewall.log file_max=5M all_max=50M/appfirewall.log rotate=utc compress file_max=5M ttl=90/g' "/etc/asl.conf"
-
-# Reload the firewall
-# (uncomment if above is not commented out)
-#launchctl unload /System/Library/LaunchAgents/com.apple.alf.useragent.plist
-#sudo launchctl unload /System/Library/LaunchDaemons/com.apple.alf.agent.plist
-#sudo launchctl load /System/Library/LaunchDaemons/com.apple.alf.agent.plist
-#launchctl load /System/Library/LaunchAgents/com.apple.alf.useragent.plist
-
-# Disable IR remote control
-#sudo defaults write /Library/Preferences/com.apple.driver.AppleIRController DeviceEnabled -bool false
-
-# Turn Bluetooth off completely
-#sudo defaults write /Library/Preferences/com.apple.Bluetooth ControllerPowerState -int 0
-#sudo launchctl unload /System/Library/LaunchDaemons/com.apple.blued.plist
-#sudo launchctl load /System/Library/LaunchDaemons/com.apple.blued.plist
-
-# Disable wifi captive portal
-#sudo defaults write /Library/Preferences/SystemConfiguration/com.apple.captive.control Active -bool false
-
-# Disable remote apple events
-sudo systemsetup -setremoteappleevents off
-
-# Disable remote login
-sudo systemsetup -setremotelogin off
-
-# Disable wake-on modem
-sudo systemsetup -setwakeonmodem off
-
-# Disable wake-on LAN
-sudo systemsetup -setwakeonnetworkaccess off
-
-# Disable file-sharing via AFP or SMB
-# sudo launchctl unload -w /System/Library/LaunchDaemons/com.apple.AppleFileServer.plist
-# sudo launchctl unload -w /System/Library/LaunchDaemons/com.apple.smbd.plist
-
-# Display login window as name and password
-#sudo defaults write /Library/Preferences/com.apple.loginwindow SHOWFULLNAME -bool true
-
-# Do not show password hints
-#sudo defaults write /Library/Preferences/com.apple.loginwindow RetriesUntilHint -int 0
-
-# Disable guest account login
-sudo defaults write /Library/Preferences/com.apple.loginwindow GuestEnabled -bool false
-
-# Automatically lock the login keychain for inactivity after 6 hours
-#security set-keychain-settings -t 21600 -l ~/Library/Keychains/login.keychain
-
-# Destroy FileVault key when going into standby mode, forcing a re-auth.
-# Source: https://web.archive.org/web/20160114141929/http://training.apple.com/pdf/WP_FileVault2.pdf
-#sudo pmset destroyfvkeyonstandby 1
-
-# Disable Bonjour multicast advertisements
-#sudo defaults write /Library/Preferences/com.apple.mDNSResponder.plist NoMulticastAdvertisements -bool true
-
-# Disable the crash reporter
-#defaults write com.apple.CrashReporter DialogType -string "none"
-
-# Disable diagnostic reports
-#sudo launchctl unload -w /System/Library/LaunchDaemons/com.apple.SubmitDiagInfo.plist
-
-# Log authentication events for 90 days
-#sudo perl -p -i -e 's/rotate=seq file_max=5M all_max=20M/rotate=utc file_max=5M ttl=90/g' "/etc/asl/com.apple.authd"
-
-# Log installation events for a year
-#sudo perl -p -i -e 's/format=bsd/format=bsd mode=0640 rotate=utc compress file_max=5M ttl=365/g' "/etc/asl/com.apple.install"
-
-# Increase the retention time for system.log and secure.log
-#sudo perl -p -i -e 's/\/var\/log\/wtmp.*$/\/var\/log\/wtmp   \t\t\t640\ \ 31\    *\t\@hh24\ \J/g' "/etc/newsyslog.conf"
-
-# Keep a log of kernel events for 30 days
-#sudo perl -p -i -e 's|flags:lo,aa|flags:lo,aa,ad,fd,fm,-all,^-fa,^-fc,^-cl|g' /private/etc/security/audit_control
-#sudo perl -p -i -e 's|filesz:2M|filesz:10M|g' /private/etc/security/audit_control
-#sudo perl -p -i -e 's|expire-after:10M|expire-after: 30d |g' /private/etc/security/audit_control
-
 # Disable the “Are you sure you want to open this application?” dialog
 defaults write com.apple.LaunchServices LSQuarantine -bool false
 
@@ -403,8 +168,6 @@ defaults write com.apple.LaunchServices LSQuarantine -bool false
 running "Disable local Time Machine snapshots"
 sudo tmutil disablelocal;ok
 
-# running "Disable hibernation (speeds up entering sleep mode)"
-# sudo pmset -a hibernatemode 0;ok
 
 running "Remove the sleep image file to save disk space"
 sudo rm -rf /Private/var/vm/sleepimage;ok
@@ -413,32 +176,7 @@ sudo touch /Private/var/vm/sleepimage;ok
 running "…and make sure it can’t be rewritten"
 sudo chflags uchg /Private/var/vm/sleepimage;ok
 
-#running "Disable the sudden motion sensor as it’s not useful for SSDs"
-# sudo pmset -a sms 0;ok
 
-################################################
-# Optional / Experimental                      #
-################################################
-
-# running "Set computer name (as done via System Preferences → Sharing)"
-# sudo scutil --set ComputerName "antic"
-# sudo scutil --set HostName "antic"
-# sudo scutil --set LocalHostName "antic"
-# sudo defaults write /Library/Preferences/SystemConfiguration/com.apple.smb.server NetBIOSName -string "antic"
-
-# running "Disable smooth scrolling"
-# (Uncomment if you’re on an older Mac that messes up the animation)
-# defaults write NSGlobalDomain NSScrollAnimationEnabled -bool false;ok
-
-# running "Disable Resume system-wide"
-# defaults write NSGlobalDomain NSQuitAlwaysKeepsWindows -bool false;ok
-# TODO: might want to enable this again and set specific apps that this works great for
-# e.g. defaults write com.microsoft.word NSQuitAlwaysKeepsWindows -bool true
-
-# running "Fix for the ancient UTF-8 bug in QuickLook (http://mths.be/bbo)""
-# # Commented out, as this is known to cause problems in various Adobe apps :(
-# # See https://github.com/mathiasbynens/dotfiles/issues/237
-# echo "0x08000100:0" > ~/.CFUserTextEncoding;ok
 
 # running "Stop iTunes from responding to the keyboard media keys"
 # launchctl unload -w /System/Library/LaunchAgents/com.apple.rcd.plist 2> /dev/null;ok
@@ -456,10 +194,6 @@ sudo chflags uchg /Private/var/vm/sleepimage;ok
 # file=/Applications/Dropbox.app/Contents/Resources/emblem-dropbox-uptodate.icns
 # [ -e "${file}" ] && mv -f "${file}" "${file}.bak";ok
 
-# running "Wipe all (default) app icons from the Dock"
-# # This is only really useful when setting up a new Mac, or if you don’t use
-# # the Dock to launch apps.
-# defaults write com.apple.dock persistent-apps -array "";ok
 
 #running "Enable the 2D Dock"
 #defaults write com.apple.dock no-glass -bool true;ok
@@ -491,18 +225,13 @@ sudo nvram SystemAudioVolume=" ";ok
 running "Menu bar: disable transparency"
 defaults write NSGlobalDomain AppleEnableMenuBarTransparency -bool false;ok
 
-running "Menu bar: hide the Time Machine, Volume, User, and Bluetooth icons"
+running "Menu bar: hide the Time Machine"
 for domain in ~/Library/Preferences/ByHost/com.apple.systemuiserver.*; do
   defaults write "${domain}" dontAutoLoad -array \
     "/System/Library/CoreServices/Menu Extras/TimeMachine.menu" \
-    "/System/Library/CoreServices/Menu Extras/Volume.menu" \
-    "/System/Library/CoreServices/Menu Extras/User.menu"
 done;
 defaults write com.apple.systemuiserver menuExtras -array \
-  "/System/Library/CoreServices/Menu Extras/Bluetooth.menu" \
   "/System/Library/CoreServices/Menu Extras/AirPort.menu" \
-  "/System/Library/CoreServices/Menu Extras/Battery.menu" \
-  "/System/Library/CoreServices/Menu Extras/Clock.menu"
 ok
 
 running "Set highlight color to green"
@@ -799,12 +528,6 @@ bot "Configuring Hot Corners"
 running "Top left screen corner → Mission Control"
 defaults write com.apple.dock wvous-tl-corner -int 2
 defaults write com.apple.dock wvous-tl-modifier -int 0;ok
-running "Top right screen corner → Desktop"
-defaults write com.apple.dock wvous-tr-corner -int 4
-defaults write com.apple.dock wvous-tr-modifier -int 0;ok
-running "Bottom right screen corner → Start screen saver"
-defaults write com.apple.dock wvous-br-corner -int 5
-defaults write com.apple.dock wvous-br-modifier -int 0;ok
 
 ###############################################################################
 bot "Configuring Safari & WebKit"
