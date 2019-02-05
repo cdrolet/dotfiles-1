@@ -228,10 +228,10 @@ defaults write NSGlobalDomain AppleEnableMenuBarTransparency -bool false;ok
 running "Menu bar: hide the Time Machine"
 for domain in ~/Library/Preferences/ByHost/com.apple.systemuiserver.*; do
   defaults write "${domain}" dontAutoLoad -array \
-    "/System/Library/CoreServices/Menu Extras/TimeMachine.menu" \
+    "/System/Library/CoreServices/Menu Extras/TimeMachine.menu"
 done;
 defaults write com.apple.systemuiserver menuExtras -array \
-  "/System/Library/CoreServices/Menu Extras/AirPort.menu" \
+  "/System/Library/CoreServices/Menu Extras/AirPort.menu"
 ok
 
 running "Set highlight color to green"
@@ -773,3 +773,4 @@ done
 
 
 bot "Woot! All done. Kill this terminal and launch iTerm"
+
